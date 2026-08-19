@@ -318,3 +318,12 @@ configuration/data locations.
 - The configuration is stored in `config.txt` (in the per-user state
   directory, see *Configuration*); it is created automatically the first
   time and you can edit it by hand.
+
+## License
+
+GPL-3.0 or later — see the [`LICENSE`](LICENSE) file.
+
+The expedition *content* comes from
+[cwmonkey/nms-expeditions](https://cwmonkey.github.io/nms-expeditions/)
+(Original files from BorisDeLeodium & /), whose files are only used as
+input data, never redistributed by this repository.
