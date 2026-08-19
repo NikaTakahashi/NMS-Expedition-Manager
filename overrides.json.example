@@ -1,0 +1,11 @@
+{
+  "e03/Originals/Easy": {
+    "BlockStormsAtStart": "[[removed]]"
+  },
+  "e03/Redux/Easy": {
+    "BlockStormsAtStart": false
+  },
+  "e01/Originals/Defaults": {
+    "StartingCredits": 150
+  }
+}

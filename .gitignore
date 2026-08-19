@@ -1,0 +1,32 @@
+# ---- Python -----------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# ---- Generated / downloaded data (regenerable, not source) ------------
+# The 126-file library, produced by `./run.sh sync`
+ExpeditionManagerLibrary/
+# Raw inputs downloaded from the upstream cwmonkey repository (cache)
+data/
+
+# ---- Per-user data (lives in the OS state directory, not the repo) ----
+# Older versions kept these next to the source code; they are migrated to
+# the per-user state directory on first run. Ignore any stray copies.
+config.txt
+overrides.json
+
+# ---- Launchers that are machine-specific ------------------------------
+*.desktop
+
+# ---- OS / editor noise ------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp

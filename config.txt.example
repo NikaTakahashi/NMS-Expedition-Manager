@@ -1,0 +1,24 @@
+# ============================================================
+#  Expedition Manager - configuration (EXAMPLE / reference)
+# ============================================================
+# The real configuration file is `config.txt`, which the program
+# creates automatically in the per-user STATE directory on first run:
+#
+#   Linux:   ~/.local/share/expedition-manager/config.txt
+#   Windows: %LOCALAPPDATA%\expedition-manager\config.txt
+#   macOS:   ~/Library/Application Support/expedition-manager/config.txt
+#
+# You normally never need this example - the auto-created file works
+# out of the box. Use it only if you want to pre-seed or inspect the
+# format. To change values: edit the state-dir config.txt by hand, or
+# run `./run.sh config` for an interactive editor.
+#
+# --- The two keys (KEY=VALUE) -----------------------------------------
+
+# Path to the NMS Proton prefix (Linux only; used to locate the game
+# cache). Leave EMPTY to auto-probe the standard Steam locations.
+proton_prefix=
+
+# Path of the expedition library. Defaults to
+# <program directory>/ExpeditionManagerLibrary, so this can stay empty.
+library_path=
