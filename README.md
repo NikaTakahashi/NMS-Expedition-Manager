@@ -1,7 +1,7 @@
 # Expedition Manager
 
 <p align="center">
-  <img src="assets/Logo.jpeg" width="480" alt="Expedition Manager — No Man's Sky">
+  <img src="assets/Logo.jpeg" width="280" alt="Expedition Manager — No Man's Sky">
 </p>
 
 Offline expedition manager for **No Man's Sky** (PC/Mac/Steam Deck/Linux),
