@@ -17,6 +17,20 @@ based on the files from [cwmonkey/nms-expeditions](https://cwmonkey.github.io/nm
 > buy me a coffee: **[ko-fi.com/nikatakahashi](https://ko-fi.com/nikatakahashi)**. It's
 > the best way to keep the project alive. Thank you! 🚀
 
+## Screenshots
+
+*Library* — the full catalog with per-expedition sync and install status:
+
+<p align="center"><img src="assets/screenshots/library.png" width="720" alt="Library tab"></p>
+
+*Install* — version, difficulty and the 67-parameter customization form:
+
+<p align="center"><img src="assets/screenshots/install.png" width="720" alt="Install tab"></p>
+
+*Settings* — game paths, state and file locations:
+
+<p align="center"><img src="assets/screenshots/settings.png" width="720" alt="Settings tab"></p>
+
 ## Usage
 
 **Linux / macOS** (the GUI works exactly the same on both; on macOS you
