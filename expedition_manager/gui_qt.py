@@ -18,12 +18,14 @@ the GUI thread.
 
 Backend selection (see cli.cmd_gui): PyQt6 → PySide6 → tkinter fallback.
 """
+import functools
 import html as _html
 import os
 import queue
 import re as _re
 import sys
 import threading
+import traceback
 from pathlib import Path
 
 # ---------------------------------------------------------------- Qt import
@@ -73,8 +75,32 @@ _LOG_DEFAULT = "#d4d4d4"
 _MAX_LOG_BLOCKS = 2000
 
 
+def _qt_slot(method):
+    """Make a Python slot invoked by Qt exception-safe.
+
+    PyQt6 turns any exception that escapes a Python slot called from the C++
+    side (button clicks, timer timeouts, selection changes, ...) into a
+    silent ``qFatal``: the whole application aborts (SIGABRT) with no
+    traceback and no way to recover. Catching every such exception and
+    logging it instead is the only way to keep the window alive.
+    """
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return method(self, *args, **kwargs)
+        except Exception as e:
+            self._slot_failed(method.__name__, e)
+    return wrapper
+
+
 def launch() -> int:
     """Create and run the Qt main window. Returns the process exit code."""
+    # Last line of defence: if a Python exception still escapes a Qt callback
+    # (see _qt_slot), print a real traceback to the terminal before PyQt's
+    # qFatal path kills the process, so the bug is diagnosable.
+    sys.excepthook = lambda t, v, tb: traceback.print_exception(t, v, tb)
+    threading.excepthook = lambda a: traceback.print_exception(
+        a.exc_type, a.exc_value, a.exc_traceback)
     # Prefer native Wayland (xdg-shell) when running on a Wayland session
     # and the user has not chosen a platform explicitly. (The launchers set
     # QT_QPA_PLATFORM too; this is the second line of defence.)
@@ -216,6 +242,27 @@ class MainWindow(QMainWindow):
                 self._apply_custom_values(inst["custom"])
 
     # --------------------------------------------------------------- helpers
+
+    def _slot_failed(self, name: str, exc: Exception):
+        """Report an exception caught by a _qt_slot-guarded callback."""
+        tb = traceback.format_exc()
+        try:
+            self.q.put(("log", "err", f"GUI error in {name}(): {exc}"))
+        except Exception:
+            pass
+        try:
+            sys.stderr.write(
+                f"[Expedition Manager] GUI error in {name}:\n{tb}")
+            sys.stderr.flush()
+        except Exception:
+            pass
+        # An error mid-operation must not leave the UI frozen.
+        try:
+            if getattr(self, "worker_busy", False):
+                self.worker_busy = False
+                self._set_busy(False)
+        except Exception:
+            pass
 
     def _diff_radio(self, value: str) -> QRadioButton:
         return {"Defaults": self.rb_def,
@@ -545,25 +592,30 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=runner, daemon=True).start()
 
+    @_qt_slot
     def _poll_queue(self):
         try:
             while True:
                 item = self.q.get_nowait()
                 kind = item[0]
-                if kind == "log":
-                    self._append_log(item[1], item[2])
-                elif kind == "progress":
-                    done, total, msg = item[1], item[2], item[3]
-                    if total:
-                        self.progress.setRange(0, total)
-                        self.progress.setValue(done)
-                        self.lbl_progress.setText(f"{done}/{total}  {msg}")
-                    else:
-                        self.lbl_progress.setText(msg)
-                elif kind == "done":
-                    self._on_worker_done(item[1])
-                elif kind == "error":
-                    self._on_worker_error(item[1])
+                try:
+                    if kind == "log":
+                        self._append_log(item[1], item[2])
+                    elif kind == "progress":
+                        done, total, msg = item[1], item[2], item[3]
+                        if total:
+                            self.progress.setRange(0, total)
+                            self.progress.setValue(done)
+                            self.lbl_progress.setText(f"{done}/{total}  {msg}")
+                        else:
+                            self.lbl_progress.setText(msg)
+                    elif kind == "done":
+                        self._on_worker_done(item[1])
+                    elif kind == "error":
+                        self._on_worker_error(item[1])
+                except Exception as e:
+                    # One bad queue item must not kill the pump.
+                    self._slot_failed(f"_poll_queue/{kind}", e)
         except queue.Empty:
             pass
 
@@ -628,7 +680,10 @@ class MainWindow(QMainWindow):
     def _refresh_library_tree(self):
         tree = self.tree
         tree.setUpdatesEnabled(False)
-        prev_sel = self._tree_selection() or None
+        # First selected expedition id (str); _tree_selection() returns a
+        # list, which is not hashable and must not be used as a dict key.
+        _sel = self._tree_selection()
+        prev_sel = _sel[0] if _sel else None
         tree.clear()
         self._tree_items = {}
         for exp in self.catalog:
@@ -651,10 +706,9 @@ class MainWindow(QMainWindow):
             if inst.get("exp_id") == exp.id:
                 item.setForeground(5, QColor("#2e7d32"))
         # keep previous selection if possible
-        target = prev_sel
-        if target and target in self._tree_items:
-            tree.setCurrentItem(self._tree_items[target])
-            tree.scrollToItem(self._tree_items[target])
+        if prev_sel and prev_sel in self._tree_items:
+            tree.setCurrentItem(self._tree_items[prev_sel])
+            tree.scrollToItem(self._tree_items[prev_sel])
         tree.setUpdatesEnabled(True)
 
     def _status_cell(self, exp_id, mode):
@@ -701,6 +755,7 @@ class MainWindow(QMainWindow):
             text = "(nothing installed)"
         self.lbl_installed.setText(text)
 
+    @_qt_slot
     def _update_statusbar(self):
         n = len(self.status)
         inst = self.state.get("installed") or {}
@@ -716,6 +771,7 @@ class MainWindow(QMainWindow):
         return [i.data(0, Qt.ItemDataRole.UserRole)
                 for i in self.tree.selectedItems()]
 
+    @_qt_slot
     def _on_tree_double_click(self, _item, _column=0):
         sel = self._tree_selection()
         if not sel:
@@ -745,6 +801,7 @@ class MainWindow(QMainWindow):
                 self.cmb_exp.setCurrentText(f"{e.id}  —  {e.name}")
                 return
 
+    @_qt_slot
     def _on_exp_change(self, *_):
         self._update_redux_state()
         self._on_install_choice()
@@ -758,6 +815,7 @@ class MainWindow(QMainWindow):
         else:
             self.rb_redux.setEnabled(True)
 
+    @_qt_slot
     def _on_install_choice(self, *_):
         """Update the combo-state hint + Install button label."""
         exp = self._exp_from_combo()
@@ -852,15 +910,20 @@ class MainWindow(QMainWindow):
         grid.setRowStretch(r, 1)
 
     def eventFilter(self, obj, event):
-        t = event.type()
-        if t in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress):
-            prop = obj.property("exped_prop")
-            if prop is not None:
-                p = self.custom_info.get(prop)
-                if p is not None:
-                    self._custom_help(p)
-        return super().eventFilter(obj, event)
+        try:
+            t = event.type()
+            if t in (QEvent.Type.FocusIn, QEvent.Type.MouseButtonPress):
+                prop = obj.property("exped_prop")
+                if prop is not None:
+                    p = self.custom_info.get(prop)
+                    if p is not None:
+                        self._custom_help(p)
+            return super().eventFilter(obj, event)
+        except Exception as e:
+            self._slot_failed("eventFilter", e)
+            return False
 
+    @_qt_slot
     def _custom_help(self, p):
         if not p:
             self.lbl_custom_help.setText(" ")
@@ -885,6 +948,7 @@ class MainWindow(QMainWindow):
                 return str(o["value"])
         return disp
 
+    @_qt_slot
     def _load_preset_form(self, notify=False):
         vars_ = getattr(self, "custom_vars", None)
         if not vars_:
@@ -908,6 +972,7 @@ class MainWindow(QMainWindow):
                      f"Loaded the {self._current_diff()} preset values "
                      f"into the customization form.")
 
+    @_qt_slot
     def _reset_custom_form(self):
         for combo in getattr(self, "custom_vars", {}).values():
             combo.blockSignals(True)
@@ -934,6 +999,7 @@ class MainWindow(QMainWindow):
             out[prop] = self._display_to_value(disp, self.custom_info[prop])
         return out
 
+    @_qt_slot
     def _update_custom_state(self):
         if not getattr(self, "custom_vars", None):
             return
@@ -954,6 +1020,7 @@ class MainWindow(QMainWindow):
                 "No changes — the pre-built file will be installed")
             self.lbl_custom_state.setStyleSheet("color: gray;")
 
+    @_qt_slot
     def _detect_caches(self):
         found = installer.find_nms_cache_dirs()
         self.cmb_cache.blockSignals(True)
@@ -979,6 +1046,7 @@ class MainWindow(QMainWindow):
             target = next((c for c in found if contains_file(c)), found[0])
         self.cmb_cache.setCurrentText(str(target))
 
+    @_qt_slot
     def _detect_caches_log(self):
         found = installer.find_nms_cache_dirs()
         if found:
@@ -992,6 +1060,7 @@ class MainWindow(QMainWindow):
 
     # -------------------------------------------------------------- actions
 
+    @_qt_slot
     def do_sync(self, only_exps=None, force=False):
         exps = [e for e in self.catalog if e.id in only_exps] if only_exps \
             else None
@@ -1025,6 +1094,7 @@ class MainWindow(QMainWindow):
 
         self._run_bg(work)
 
+    @_qt_slot
     def do_install(self):
         exp = self._exp_from_combo()
         if exp is None:
@@ -1125,6 +1195,7 @@ class MainWindow(QMainWindow):
 
         self._run_bg(work)
 
+    @_qt_slot
     def do_uninstall(self):
         inst = self.state.get("installed")
         if not inst:
@@ -1158,6 +1229,7 @@ class MainWindow(QMainWindow):
             self.ent_prefix.setText(cfg.get("proton_prefix", ""))
         self.ent_library.setText(cfg.get("library_path", ""))
 
+    @_qt_slot
     def do_save_config(self):
         new = {"library_path": (self.ent_library.text().strip()
                                 or str(PROJECT_ROOT
@@ -1173,6 +1245,7 @@ class MainWindow(QMainWindow):
         self._populate_settings()
         self._refresh_all()  # library path may have changed
 
+    @_qt_slot
     def _browse_prefix(self):
         if self.ent_prefix is None:
             return
@@ -1181,21 +1254,25 @@ class MainWindow(QMainWindow):
         if d:
             self.ent_prefix.setText(d)
 
+    @_qt_slot
     def _standard_prefix(self):
         if self.ent_prefix is None:
             return
         self.ent_prefix.setText(DEFAULT_PREFIX)
 
+    @_qt_slot
     def _browse_library(self):
         d = QFileDialog.getExistingDirectory(
             self, "Select the expedition library folder", str(PROJECT_ROOT))
         if d:
             self.ent_library.setText(d)
 
+    @_qt_slot
     def _reset_library(self):
         self.ent_library.setText(
             str(PROJECT_ROOT / "ExpeditionManagerLibrary"))
 
+    @_qt_slot
     def _restore_defaults(self):
         from .config import DEFAULT_CONFIG
         for k, v in DEFAULT_CONFIG.items():
@@ -1207,6 +1284,9 @@ class MainWindow(QMainWindow):
     # --------------------------------------------------------------- window
 
     def closeEvent(self, event):
-        self._timer.stop()
+        try:
+            self._timer.stop()
+        except Exception:
+            pass
         # Worker threads are daemons: they die with the process.
         event.accept()
