@@ -20,6 +20,7 @@ Backend selection (see cli.cmd_gui): PyQt6 → PySide6 → tkinter fallback.
 """
 import functools
 import html as _html
+import inspect
 import os
 import queue
 import re as _re
@@ -84,12 +85,25 @@ def _qt_slot(method):
     traceback and no way to recover. Catching every such exception and
     logging it instead is the only way to keep the window alive.
     """
+    sig = inspect.signature(method)
+    n_pos = sum(1 for p in sig.parameters.values()
+                if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD))
+    variadic = any(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+                   for p in sig.parameters.values())
+
     @functools.wraps(method)
     def wrapper(self, *args, **kwargs):
         try:
-            return method(self, *args, **kwargs)
+            if variadic:
+                return method(self, *args, **kwargs)
+            # Qt signals such as clicked() carry an extra 'checked' argument
+            # that the slot does not declare; forward only what it accepts.
+            return method(self, *args[:n_pos - 1], **kwargs)
         except Exception as e:
             self._slot_failed(method.__name__, e)
+    # Expose the real signature (PyQt inspects it to decide how many signal
+    # arguments to pass to the slot).
+    wrapper.__signature__ = sig
     return wrapper
 
 
