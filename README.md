@@ -27,10 +27,6 @@ based on the files from [cwmonkey/nms-expeditions](https://cwmonkey.github.io/nm
 
 <p align="center"><img src="assets/screenshots/install.png" width="720" alt="Install tab"></p>
 
-*Settings* — game paths, state and file locations:
-
-<p align="center"><img src="assets/screenshots/settings.png" width="720" alt="Settings tab"></p>
-
 ## Usage
 
 **Linux / macOS** (the GUI works exactly the same on both; on macOS you
