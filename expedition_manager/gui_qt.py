@@ -665,7 +665,7 @@ class MainWindow(QMainWindow):
     def _load_catalog(self):
         """Load the expedition catalog from the local source cache (offline)."""
         src = Sources(PROJECT_ROOT / "data" / "sources", quiet=True)
-        raw = src.fetch("_data/expeditions.yml")
+        raw = src.fetch("_includes/expeditions.yml")
         self.catalog = build_catalog(raw)
 
     def _load_library_status(self):

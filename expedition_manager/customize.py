@@ -1,7 +1,7 @@
 """Runtime customization of expedition parameters (the website's form).
 
 The cwmonkey website shows one input per property of
-``_data/customizations.yml`` and pre-fills it with the values of the
+``_includes/customizations.yml`` and pre-fills it with the values of the
 selected difficulty preset. Whatever values the user sets are applied
 through the SAME mechanism as the presets (they become the
 ``difficulty_overrides`` of the pipeline), so:
@@ -47,7 +47,7 @@ def load_spec():
     order; prop_map: the placement map (type/subprop/parentprop).
     """
     src = _sources()
-    raw = src.fetch("_data/customizations.yml")
+    raw = src.fetch("_includes/customizations.yml")
     data = yaml.safe_load(raw) or []
     groups = []
     for section in data:
@@ -154,7 +154,7 @@ def build_file(exp_id: str, mode: str, difficulty: str, flat: dict,
     stock preset yields a file identical to the pre-built library one.
     """
     src = _sources()
-    catalog = {e.id: e for e in build_catalog(src.fetch("_data/expeditions.yml"))}
+    catalog = {e.id: e for e in build_catalog(src.fetch("_includes/expeditions.yml"))}
     entry = catalog.get(exp_id)
     if entry is None:
         raise ValueError(f"unknown expedition '{exp_id}'")
@@ -162,7 +162,7 @@ def build_file(exp_id: str, mode: str, difficulty: str, flat: dict,
     if version is None:
         raise ValueError(f"{exp_id} has no Redux version")
 
-    prop_map = build_prop_map(src.fetch("_data/customizations.yml"))
+    prop_map = build_prop_map(src.fetch("_includes/customizations.yml"))
     overrides = build_overrides(flat, prop_map)
     base_text = src.fetch(f"_includes/original/{version.json_file}")
     content = generate(base_text, version, difficulty, overrides, src,

@@ -22,7 +22,7 @@ def _data_dir() -> Path:
 
 def _catalog():
     src = Sources(_data_dir() / "sources")
-    return build_catalog(src.fetch("_data/expeditions.yml"))
+    return build_catalog(src.fetch("_includes/expeditions.yml"))
 
 
 # ---------------- commands ----------------

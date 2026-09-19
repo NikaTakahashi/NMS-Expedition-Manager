@@ -45,7 +45,7 @@ def _strip_append_markers(text: str) -> str:
 def _global_patches(src) -> list:
     """Global patches (the ones the website applies by default to every exp)."""
     try:
-        data = yaml.safe_load(src.fetch("_data/global_patches.yml")) or []
+        data = yaml.safe_load(src.fetch("_includes/global_patches.yml")) or []
     except Exception:
         return []
     out = []
@@ -237,9 +237,9 @@ def sync(force: bool = False, only_exp: str = None, library: str = None,
     print("Fetching expedition catalog...")
     src = Sources(Path(__file__).resolve().parent.parent / "data" / "sources",
                  force=force, log=(lambda m: progress(0, 0, m) if progress else None))
-    catalog = build_catalog(src.fetch("_data/expeditions.yml"))
-    prop_map = build_prop_map(src.fetch("_data/customizations.yml"))
-    glyph_map = build_glyph_map(src.fetch("_data/glyphs.yml"))
+    catalog = build_catalog(src.fetch("_includes/expeditions.yml"))
+    prop_map = build_prop_map(src.fetch("_includes/customizations.yml"))
+    glyph_map = build_glyph_map(src.fetch("_includes/glyphs.yml"))
     # Difficulty presets (website: presets.yml → customizations.*.json).
     # 'Defaults' means no preset; the rest map 1:1 to the website presets.
     easy_overrides = build_overrides(
