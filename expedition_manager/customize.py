@@ -26,6 +26,31 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "sources"
 #: The "(game default)" entry of the GUI dropdowns (no override for the prop)
 DEFAULT_TEXT = "(game default)"
 
+#:
+#: Options for typed properties that the website renders as <select>
+#: dropdowns even though the YAML does not list them (kept in sync with
+#: the website's form template in index.html). Properties of these types
+#: therefore get real dropdowns in the GUI instead of a bare text field.
+TYPE_OPTIONS = {
+    "DifficultyPresetType": [
+        {"value": "Normal", "text": "Normal"},
+        {"value": "Creative", "text": "Creative"},
+        {"value": "Relaxed", "text": "Relaxed"},
+        {"value": "Survival", "text": "Survival"},
+        {"value": "Permadeath", "text": "Permadeath"},
+    ],
+    "ShipClass": [
+        {"value": "Dropship", "text": "Dropship"},
+        {"value": "Fighter", "text": "Fighter"},
+        {"value": "Scientific", "text": "Scientific"},
+        {"value": "Shuttle", "text": "Shuttle"},
+        {"value": "Royal", "text": "Royal"},
+        {"value": "Alien", "text": "Alien (Has incorrect tech)"},
+        {"value": "Sail", "text": "Sail"},
+        {"value": "Robot", "text": "Robot (Doesn't work?)"},
+    ],
+}
+
 PRESET_FILES = {
     "Easy": "_includes/customizations.easy_mode.json",
     "Hardcore": "_includes/customizations.hard_mode.json",
@@ -64,6 +89,9 @@ def load_spec():
                     if isinstance(v, bool):
                         v = "true" if v else "false"
                     options.append({"value": v, "text": str(o.get("text", v))})
+            elif cust.get("type") in TYPE_OPTIONS:
+                # the website offers these as <select> dropdowns too
+                options = [dict(o) for o in TYPE_OPTIONS[cust["type"]]]
             props.append({
                 "prop": cust["prop"],
                 "type": cust.get("type", "str"),
